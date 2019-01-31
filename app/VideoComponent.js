@@ -22,7 +22,9 @@ export default class VideoComponent extends Component {
    this.joinRoom = this.joinRoom.bind(this);
    this.handleRoomNameChange = this.handleRoomNameChange.bind(this);
    this.roomJoined = this.roomJoined.bind(this);
-
+   this.leaveRoom = this.leaveRoom.bind(this);
+   this.detachTracks = this.detachTracks.bind(this);
+   this.detachParticipantTracks =this.detachParticipantTracks.bind(this);
  }
 
  componentDidMount() {
@@ -81,6 +83,19 @@ export default class VideoComponent extends Component {
 	  this.attachTracks(tracks, container);
 	}
 
+	detachTracks(tracks) {
+	    tracks.forEach(track => {
+	      track.detach().forEach(detachedElement => {
+	        detachedElement.remove();
+	      });
+	    });
+	  }
+
+	detachParticipantTracks(participant) {
+	  var tracks = Array.from(participant.tracks.values());
+	  this.detachTracks(tracks);
+	}
+
 	roomJoined(room) {
 	  // Called when a participant joins a room
 	  console.log("Joined as '" + this.state.identity + "'");
@@ -95,7 +110,56 @@ export default class VideoComponent extends Component {
 	  if (!previewContainer.querySelector('video')) {
 	    this.attachParticipantTracks(room.localParticipant, previewContainer);
 	  }
+
+	  // Attach the Tracks of the room's participants.
+    room.participants.forEach(participant => {
+      console.log("Already in Room: '" + participant.identity + "'");
+      var previewContainer = this.refs.remoteMedia;
+      this.attachParticipantTracks(participant, previewContainer);
+    });
+
+    // Participant joining room
+    room.on('participantConnected', participant => {
+      console.log("Joining: '" + participant.identity + "'");
+    });
+
+    // Attach participant’s tracks to DOM when they add a track
+    room.on('trackAdded', (track, participant) => {
+      console.log(participant.identity + ' added track: ' + track.kind);
+      var previewContainer = this.refs.remoteMedia;
+      this.attachTracks([track], previewContainer);
+    });
+
+    // Detach participant’s track from DOM when they remove a track.
+    room.on('trackRemoved', (track, participant) => {
+      this.log(participant.identity + ' removed track: ' + track.kind);
+      this.detachTracks([track]);
+    });
+
+    // Detach all participant’s track when they leave a room.
+    room.on('participantDisconnected', participant => {
+      console.log("Participant '" + participant.identity + "' left the room");
+      this.detachParticipantTracks(participant);
+    });
+
+    // Once the local participant leaves the room, detach the Tracks
+    // of all other participants, including that of the LocalParticipant.
+    room.on('disconnected', () => {
+      if (this.state.previewTracks) {
+        this.state.previewTracks.forEach(track => {
+          track.stop();
+        });
+      }
+      this.detachParticipantTracks(room.localParticipant);
+      room.participants.forEach(this.detachParticipantTracks);
+      this.state.activeRoom = null;
+      this.setState({ hasJoinedRoom: false, localMediaAvailable: false });
+    });  
 	    // ... more event listeners
+	}
+	leaveRoom() {
+   		this.state.activeRoom.disconnect();
+   		this.setState({ hasJoinedRoom: false, localMediaAvailable: false });
 	}
 
 	render() {
@@ -111,7 +175,7 @@ export default class VideoComponent extends Component {
 	   show `Leave Room` button.
 	  */
 	  let joinOrLeaveRoomButton = this.state.hasJoinedRoom ? (
-	  <RaisedButton label="Leave Room" secondary={true} onClick={() => alert("Leave Room")}  />) : (
+	  <RaisedButton label="Leave Room" secondary={true} onClick={this.leaveRoom}  />) : (
 	  <RaisedButton label="Join Room" primary={true} onClick={this.joinRoom} />);
 	  return (
 	    <Card>
