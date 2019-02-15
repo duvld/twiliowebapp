@@ -6,11 +6,13 @@
   "repository": "git@github.com:kimobrian/TwilioReact.git",
   "author": "O'Brian Kim",
   "license": "MIT",
+  "homepage": "https://duvld.github.io/twiliowebapp/",
   "dependencies": {
     "axios": "^0.18.0",
     "dotenv": "^5.0.0",
     "express": "^4.16.2",
     "faker": "^4.1.0",
+    "gh-pages": "^2.0.1",
     "material-ui": "^0.20.0",
     "react": "^16.2.0",
     "react-dom": "^16.2.0",
@@ -19,6 +21,8 @@
     "twilio-video": "^1.15.1"
   },
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d app",
     "build": "./node_modules/.bin/webpack",
     "start": "node server",
     "start:prod": "npm run build && node server.js"
